@@ -5,18 +5,17 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.tmiyamon.bundler.MainActivity">
+    tools:context="com.tmiyamon.bundler.SampleActivity"
+    >
 
-    <Button
-        android:id="@+id/b_submit"
+    <TextView
+        android:id="@+id/tv_result"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="click"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        android:onClick="onSubmit"
         />
 
 </android.support.constraint.ConstraintLayout>

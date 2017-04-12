@@ -11,7 +11,7 @@ afterEvaluate { project ->
         publications {
             MyPublication(MavenPublication) {
                 from components.java
-                groupId 'com.tmiyamon'
+                groupId 'com.tmiyamon.bundler'
                 artifactId ARTIFACT_ID
                 version project.bundlerVersion
                 artifact sourcesJar
