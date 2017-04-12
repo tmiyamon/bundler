@@ -4,8 +4,8 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/Bundler.iml" filepath="$PROJECT_DIR$/Bundler.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/bundler-compiler/bundler-compiler.iml" filepath="$PROJECT_DIR$/bundler-compiler/bundler-compiler.iml" />
       <module fileurl="file://$PROJECT_DIR$/bundler-lib/bundler-lib.iml" filepath="$PROJECT_DIR$/bundler-lib/bundler-lib.iml" />
+      <module fileurl="file://$PROJECT_DIR$/bundler-processor/bundler-processor.iml" filepath="$PROJECT_DIR$/bundler-processor/bundler-processor.iml" />
     </modules>
   </component>
 </project>
