@@ -1,1 +1,1 @@
-include ':app', ':bundler-lib', ':bundler-processor'
+include ':app', ':bundler-lib', ':bundler-processor', ':app-kotlin'

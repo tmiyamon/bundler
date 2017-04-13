@@ -17,7 +17,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
 import static com.squareup.javapoet.TypeSpec.classBuilder;
@@ -56,6 +58,10 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
         TypeSpec.Builder typeSpecBuilder = classBuilder(bundlerClassName)
                 .addModifiers(Modifier.PUBLIC)
                 .superclass(bundler.getOriginalClassName());
+
+        for (ExecutableElement constructor: bundler.constrcutors) {
+            typeSpecBuilder.addMethod(buildConstructor(constructor));
+        }
 
         for (BundlerFieldElement field : bundler.fields) {
             emitField(bundler, field, typeSpecBuilder);
@@ -104,6 +110,22 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
                 .addField(bundleKey)
                 .addMethod(getOperation)
                 .addMethod(putOperation);
+    }
+
+    private MethodSpec buildConstructor(ExecutableElement constructor) {
+        MethodSpec.Builder constructorBuilder = MethodSpec.constructorBuilder()
+                .addModifiers(constructor.getModifiers());
+
+        StringBuilder superArgs = new StringBuilder();
+        for (VariableElement variable: constructor.getParameters()) {
+            constructorBuilder
+                    .addParameter(TypeName.get(variable.asType()), variable.getSimpleName().toString());
+            superArgs.append(variable.getSimpleName()).append(",");
+        }
+
+        constructorBuilder.addStatement("super($N)", superArgs.substring(0, superArgs.length()-1));
+
+        return constructorBuilder.build();
     }
 
     private MethodSpec buildFromBundleMethod(BundlerElement bundler) {

@@ -9,6 +9,8 @@ public class SampleActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sample);
+
+        SampleParams params = BundlerSampleParams.parse(getIntent());
 //
 //        BundlerSampleParams.fromIntent(getIntent());
 //        Bundler.parse(getIntent().getExtra());
