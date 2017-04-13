@@ -8,13 +8,10 @@ import java.util.List;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 
 class BundlerElement {
     public final TypeElement originalElement;
-    public final List<ExecutableElement> constrcutors;
     public final List<BundlerFieldElement> fields;
     public final String packageName;
     public final String bundlerClassName;
@@ -22,14 +19,12 @@ class BundlerElement {
 
     public BundlerElement(
             TypeElement originalElement,
-            List<ExecutableElement> constructors,
             List<BundlerFieldElement> fields,
             String bundlerClassName,
             String originalClassName,
             String packageName
     ) {
         this.originalElement = originalElement;
-        this.constrcutors = constructors;
         this.fields = fields;
         this.bundlerClassName = bundlerClassName;
         this.originalClassName = originalClassName;
@@ -51,15 +46,9 @@ class BundlerElement {
         final TypeElement typeElement = (TypeElement) element;
 
         List<BundlerFieldElement> fields = new ArrayList<>();
-        List<ExecutableElement> constructors = new ArrayList<>();
-
         for (Element enclosedElement : typeElement.getEnclosedElements()) {
             if (enclosedElement.getKind() == ElementKind.FIELD) {
                 fields.add(BundlerFieldElement.parse(env, MoreElements.asVariable(enclosedElement)));
-            }
-            if (enclosedElement.getKind() == ElementKind.CONSTRUCTOR &&
-                    (enclosedElement.getModifiers().contains(Modifier.PUBLIC) ||  enclosedElement.getModifiers().contains(Modifier.PROTECTED))) {
-                constructors.add(MoreElements.asExecutable(enclosedElement));
             }
         }
 
@@ -69,7 +58,6 @@ class BundlerElement {
 
         return new BundlerElement(
                 typeElement,
-                constructors,
                 fields,
                 bundlerClassName,
                 originalClassName,

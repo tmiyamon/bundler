@@ -17,9 +17,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
 import static com.squareup.javapoet.TypeSpec.classBuilder;
@@ -56,23 +54,20 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
         final ClassName bundlerClassName = bundler.getBundlerClassName();
 
         TypeSpec.Builder typeSpecBuilder = classBuilder(bundlerClassName)
-                .addModifiers(Modifier.PUBLIC)
-                .superclass(bundler.getOriginalClassName());
-
-        for (ExecutableElement constructor: bundler.constrcutors) {
-            typeSpecBuilder.addMethod(buildConstructor(constructor));
-        }
+                .addModifiers(Modifier.PUBLIC);
 
         for (BundlerFieldElement field : bundler.fields) {
-            emitField(bundler, field, typeSpecBuilder);
+            emitField(field, typeSpecBuilder);
         }
-
         typeSpecBuilder
-                .addMethod(buildToBundleMethod(bundler))
-                .addMethod(buildToIntentMethod(bundler))
-                .addMethod(buildFromBundleMethod(bundler))
-                .addMethod(buildFromIntentMethod(bundler))
-                .addMethod(buildWithIntentMethod(bundler));
+                .addMethod(buildCreateBundle(bundler))
+                .addMethod(buildCreateBundleWithFields(bundler))
+                .addMethod(buildCreateIntent(bundler))
+                .addMethod(buildCreateIntentWithFields(bundler))
+                .addMethod(buildApply(bundler))
+                .addMethod(buildApplyWithField(bundler))
+                .addMethod(buildParse(bundler))
+                .addMethod(buildParseIntent(bundler));
 
         JavaFile.builder(bundlerClassName.packageName(), typeSpecBuilder.build())
                 .skipJavaLangImports(true)
@@ -80,7 +75,8 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
                 .writeTo(env.getFiler());
     }
 
-    private void emitField(BundlerElement bundler, BundlerFieldElement field, TypeSpec.Builder typeSpecBuilder)  throws IOException {
+
+    private void emitField(BundlerFieldElement field, TypeSpec.Builder typeSpecBuilder)  throws IOException {
         final String operation = field.getOperation(env);
         final String keyName = field.getBundleKeyName();
         final String keyValue = field.getBundleKeyValue();
@@ -112,78 +108,163 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
                 .addMethod(putOperation);
     }
 
-    private MethodSpec buildConstructor(ExecutableElement constructor) {
-        MethodSpec.Builder constructorBuilder = MethodSpec.constructorBuilder()
-                .addModifiers(constructor.getModifiers());
-
-        StringBuilder superArgs = new StringBuilder();
-        for (VariableElement variable: constructor.getParameters()) {
-            constructorBuilder
-                    .addParameter(TypeName.get(variable.asType()), variable.getSimpleName().toString());
-            superArgs.append(variable.getSimpleName()).append(",");
-        }
-
-        constructorBuilder.addStatement("super($N)", superArgs.substring(0, superArgs.length()-1));
-
-        return constructorBuilder.build();
-    }
-
-    private MethodSpec buildFromBundleMethod(BundlerElement bundler) {
-        MethodSpec.Builder fromBundleBuilder = MethodSpec.methodBuilder("fromBundle")
+    /**
+     * public static Bundle createBundle(T model)
+     * @param bundler
+     * @return
+     */
+    private MethodSpec buildCreateBundle(BundlerElement bundler) {
+        MethodSpec.Builder createBundleBuilder = MethodSpec.methodBuilder("createBundle")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .addParameter(ParameterSpec.builder(TypeName.get(getBundleType()), "bundle").build())
-                .returns(bundler.getOriginalClassName())
-                .addStatement("$L bundleModel = new $L()", bundler.getBundlerClassName().toString(), bundler.getBundlerClassName().toString());
-
-        for (BundlerFieldElement field : bundler.fields) {
-            fromBundleBuilder.addStatement("bundleModel.$N = $N(bundle)", field.bundleValueName, field.getGetMethodName());
-        }
-
-        return fromBundleBuilder.addStatement("return bundleModel").build();
-    }
-
-    private MethodSpec buildFromIntentMethod(BundlerElement bundler) {
-        return MethodSpec.methodBuilder("fromIntent")
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .addParameter(ParameterSpec.builder(TypeName.get(getIntentType()), "intent").build())
-                .returns(bundler.getOriginalClassName())
-                .addStatement("return fromBundle(intent.getExtras())")
-                .build();
-    }
-
-    private MethodSpec buildToBundleMethod(BundlerElement bundler) {
-        MethodSpec.Builder toBundleBuilder = MethodSpec.methodBuilder("toBundle")
-                .addModifiers(Modifier.PUBLIC)
+                .addParameter(ParameterSpec.builder(TypeName.get(bundler.originalElement.asType()), "model").build())
                 .returns(TypeName.get(getBundleType()))
                 .addStatement("Bundle bundle = new Bundle()");
 
         for (BundlerFieldElement field : bundler.fields) {
-            toBundleBuilder.addStatement("$N(bundle, this.$N)", field.getPutMethodName(), field.bundleValueName);
+            createBundleBuilder.addStatement("$N(bundle, model.$N)", field.getPutMethodName(), field.bundleValueName);
         }
 
-        return toBundleBuilder.addStatement("return bundle").build();
+        return createBundleBuilder.addStatement("return bundle").build();
     }
 
-    private MethodSpec buildToIntentMethod(BundlerElement bundler) {
-        return MethodSpec.methodBuilder("toIntent")
-                .addModifiers(Modifier.PUBLIC)
+    /**
+     * public static Bundle createBundle(varargs)
+     * @param bundler
+     * @return
+     */
+    private MethodSpec buildCreateBundleWithFields(BundlerElement bundler) {
+        MethodSpec.Builder createBundleBuilder = MethodSpec.methodBuilder("createBundle")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .returns(TypeName.get(getBundleType()))
+                .addStatement("Bundle bundle = new Bundle()");
+
+        for (BundlerFieldElement field : bundler.fields) {
+            createBundleBuilder
+                    .addParameter(TypeName.get(field.bundleValueType), field.bundleValueName)
+                    .addStatement("$N(bundle, $N)", field.getPutMethodName(), field.bundleValueName);
+        }
+
+        return createBundleBuilder.addStatement("return bundle").build();
+    }
+
+    /**
+     * public static Intent createIntent(T model)
+     * @param bundler
+     * @return
+     */
+    private MethodSpec buildCreateIntent(BundlerElement bundler) {
+        return MethodSpec.methodBuilder("createIntent")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addParameter(ParameterSpec.builder(TypeName.get(bundler.originalElement.asType()), "model").build())
                 .returns(TypeName.get(getIntentType()))
                 .addStatement("Intent intent = new Intent()")
-                .addStatement("intent.putExtras(this.toBundle())")
+                .addStatement("intent.putExtras(createBundle(model))")
                 .addStatement("return intent")
                 .build();
     }
 
-    private MethodSpec buildWithIntentMethod(BundlerElement bundler) {
-        return MethodSpec.methodBuilder("withIntent")
-                .addModifiers(Modifier.PUBLIC)
-                .addParameter(ParameterSpec.builder(TypeName.get(getIntentType()), "intent").build())
+    /**
+     * public static Intent createIntent(varargs)
+     * @param bundler
+     * @return
+     */
+    private MethodSpec buildCreateIntentWithFields(BundlerElement bundler) {
+        MethodSpec.Builder createBundleBuilder = MethodSpec.methodBuilder("createIntent")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(TypeName.get(getIntentType()))
-                .addStatement("intent.putExtras(this.toBundle())")
+                .addStatement("Intent intent = new Intent()");
+
+        StringBuilder args = new StringBuilder();
+        for (BundlerFieldElement field : bundler.fields) {
+            createBundleBuilder
+                    .addParameter(TypeName.get(field.bundleValueType), field.bundleValueName);
+            args.append(field.bundleValueName).append(",");
+        }
+
+        return createBundleBuilder
+                .addStatement("intent.putExtras(createBundle($N))", args.substring(0, args.length()-1))
                 .addStatement("return intent")
                 .build();
     }
 
+    /**
+     * public static Intent apply(Intent intent, T model)
+     * @param bundler
+     * @return
+     */
+    private MethodSpec buildApply(BundlerElement bundler) {
+        return MethodSpec.methodBuilder("apply")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addParameter(ParameterSpec.builder(TypeName.get(getIntentType()), "intent").build())
+                .addParameter(ParameterSpec.builder(TypeName.get(bundler.originalElement.asType()), "model").build())
+                .returns(TypeName.get(getIntentType()))
+                .addStatement("intent.putExtras(createBundle(model))")
+                .addStatement("return intent")
+                .build();
+    }
+
+    /**
+     * public static Intent apply(Intent intent, varargs)
+     * @param bundler
+     * @return
+     */
+    private MethodSpec buildApplyWithField(BundlerElement bundler) {
+        MethodSpec.Builder createBundleBuilder = MethodSpec.methodBuilder("apply")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addParameter(ParameterSpec.builder(TypeName.get(getIntentType()), "intent").build())
+                .returns(TypeName.get(getIntentType()));
+
+        StringBuilder args = new StringBuilder();
+        for (BundlerFieldElement field : bundler.fields) {
+            createBundleBuilder
+                    .addParameter(TypeName.get(field.bundleValueType), field.bundleValueName);
+            args.append(field.bundleValueName).append(",");
+        }
+
+        return createBundleBuilder
+                .addStatement("intent.putExtras(createBundle($N))", args.substring(0, args.length()-1))
+                .addStatement("return intent")
+                .build();
+    }
+
+    /**
+     * public static T parse(Bundle bundle)
+     * @param bundler
+     * @return
+     */
+    private MethodSpec buildParse(BundlerElement bundler) {
+        MethodSpec.Builder fromBundleBuilder = MethodSpec.methodBuilder("parse")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addParameter(ParameterSpec.builder(TypeName.get(getBundleType()), "bundle").build())
+                .returns(bundler.getOriginalClassName())
+                .addStatement("$L model = new $L()", bundler.getOriginalClassName().toString(), bundler.getOriginalClassName().toString());
+
+        for (BundlerFieldElement field : bundler.fields) {
+            fromBundleBuilder.addStatement("model.$N = $N(bundle)", field.bundleValueName, field.getGetMethodName());
+        }
+
+        return fromBundleBuilder.addStatement("return model").build();
+    }
+
+    /**
+     * public static T parse(Intent intent)
+     * @param bundler
+     * @return
+     */
+    private MethodSpec buildParseIntent(BundlerElement bundler) {
+        MethodSpec.Builder fromBundleBuilder = MethodSpec.methodBuilder("parse")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addParameter(ParameterSpec.builder(TypeName.get(getIntentType()), "intent").build())
+                .returns(bundler.getOriginalClassName())
+                .addStatement("$L bundle = intent.getExtras()", TypeName.get(getBundleType()).toString())
+                .addStatement("$L model = new $L()", bundler.getOriginalClassName().toString(), bundler.getOriginalClassName().toString());
+
+        for (BundlerFieldElement field : bundler.fields) {
+            fromBundleBuilder.addStatement("model.$N = $N(bundle)", field.bundleValueName, field.getGetMethodName());
+        }
+
+        return fromBundleBuilder.addStatement("return model").build();
+    }
 
     private TypeMirror getTypeFromString(String fullClassName)  {
         return env.getElements().getTypeElement(fullClassName).asType();
