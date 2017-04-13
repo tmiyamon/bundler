@@ -14,11 +14,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onSubmit(View view) {
-        Intent i = new Intent(this, SampleActivity.class);
-        Bundle params = new Bundle();
-        BundlerSampleParams.putSampleText(params, "text");
-        i.putExtras(params);
-
-        startActivity(i);
+        startActivity(new BundlerSampleParams().toIntent(this, SampleActivity.class)));
     }
 }

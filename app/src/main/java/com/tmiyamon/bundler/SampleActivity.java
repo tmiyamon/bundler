@@ -1,8 +1,7 @@
 package com.tmiyamon.bundler;
 
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.widget.TextView;
+import android.support.v7.app.AppCompatActivity;
 
 public class SampleActivity extends AppCompatActivity {
 
@@ -10,8 +9,10 @@ public class SampleActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sample);
-
-        String text = BundlerSampleParams.getSampleText(getIntent().getExtras());
-        ((TextView)findViewById(R.id.tv_result)).setText(text);
+//
+//        BundlerSampleParams.fromIntent(getIntent());
+//        Bundler.parse(getIntent().getExtra());
+//        String text = BundlerSampleParams.getSampleText(getIntent().getExtras());
+//        ((TextView)findViewById(R.id.tv_result)).setText(text);
     }
 }
