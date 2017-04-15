@@ -50,7 +50,7 @@ dependencies {
     })
     compile 'com.android.support:appcompat-v7:25.3.1'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
-    compile 'com.tmiyamon.bundler:bundler:0.1'
+    compile "com.tmiyamon.bundler:bundler:$bundlerVersionForApp"
+    kapt "com.tmiyamon.bundler:bundler-processor:$bundlerVersionForApp"
     testCompile 'junit:junit:4.12'
-    kapt 'com.tmiyamon.bundler:bundler-processor:0.1'
 }

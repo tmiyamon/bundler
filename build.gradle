@@ -14,7 +14,8 @@ buildscript {
 project.ext {
     bintrayUser = project.hasProperty('BINTRAY_USER') ? project.property('BINTRAY_USER') : ""
     bintrayKey = project.hasProperty('BINTRAY_KEY') ? project.property('BINTRAY_KEY') : ""
-    bundlerVersion = '0.1.0'
+    bundlerVersion = '0.1.1'
+    bundlerVersionForApp = '0.1.1'
 }
 
 allprojects {

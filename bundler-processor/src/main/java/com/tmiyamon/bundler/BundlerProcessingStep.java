@@ -298,7 +298,9 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
 
             builder.addStatement("return $L", modelInitializer.toString());
         } else {
-            builder.addStatement("$N model = new $N()", bundler.getOriginalClassName(), bundler.getOriginalClassName());
+            builder.addStatement("$L model = new $L()",
+                    bundler.getOriginalClassName().toString(),
+                    bundler.getOriginalClassName().toString());
 
             for (BundlerFieldElement field : bundler.fields) {
                 BundlerElement.SetterType setterType = bundler.getSetterTypeOf(field);
