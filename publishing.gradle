@@ -24,7 +24,7 @@ afterEvaluate { project ->
         key = project.bintrayKey
         publications = ['MyPublication']
         pkg {
-            repo = 'Bundler'
+            repo = 'bundler'
             name = POM_NAME
             licenses = ['Apache-2.0']
             vcsUrl = 'https://github.com/tmiyamon/bundler'
