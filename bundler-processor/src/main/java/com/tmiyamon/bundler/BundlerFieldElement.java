@@ -18,7 +18,8 @@ class BundlerFieldElement {
     public final String fieldName;
     public final TypeMirror fieldType;
     public final VariableElement variableElement;
-
+    public final String bundleKeyName;
+    public final String bundleKeyValue;
 
     private static final Map<String, String> ARGUMENT_TYPES = new HashMap<String, String>(20);
     static {
@@ -44,15 +45,24 @@ class BundlerFieldElement {
         ARGUMENT_TYPES.put("android.os.Parcelable", "Parcelable");
     }
 
-    private BundlerFieldElement(String fieldName, VariableElement variableElement) {
+    private BundlerFieldElement(
+            String fieldName,
+            VariableElement variableElement,
+            String bundleKeyName,
+            String bundleKeyValue
+    ) {
         this.fieldName = fieldName;
         this.fieldType = variableElement.asType();
         this.variableElement = variableElement;
+        this.bundleKeyName = bundleKeyName;
+        this.bundleKeyValue = bundleKeyValue;
     }
 
-    public static BundlerFieldElement parse(Env env, VariableElement element) {
-        final String fieldName = element.getSimpleName().toString();
-        return new BundlerFieldElement(fieldName, element);
+    public static BundlerFieldElement parse(Env env, TypeElement bundlerElement, VariableElement fieldElement) {
+        final String fieldName = fieldElement.getSimpleName().toString();
+        final String bundleKeyName = "ARG_" + fromLowerCamelToUpperUnderscore(fieldName);
+        final String bundleKeyValue = bundlerElement.getQualifiedName().toString() + "." + fieldName;
+        return new BundlerFieldElement(fieldName, fieldElement, bundleKeyName, bundleKeyValue);
     }
 
     public String getRawTypeName() {
@@ -95,13 +105,6 @@ class BundlerFieldElement {
 
     public String getExpectedSetterName() {
         return "set" + fromLowerCamelToUpperCamel(this.fieldName);
-    }
-
-    public String getBundleKeyName() {
-        return "ARG_" + fromLowerCamelToUpperUnderscore(fieldName);
-    }
-    public String getBundleKeyValue() {
-        return getBundleKeyName();
     }
 
     public String getOperation(Env env) {

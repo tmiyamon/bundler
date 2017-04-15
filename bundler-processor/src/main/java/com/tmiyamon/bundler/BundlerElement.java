@@ -52,7 +52,7 @@ class BundlerElement {
 
         for (Element enclosedElement : typeElement.getEnclosedElements()) {
             if (enclosedElement.getKind() == ElementKind.FIELD) {
-                fields.add(BundlerFieldElement.parse(env, MoreElements.asVariable(enclosedElement)));
+                fields.add(BundlerFieldElement.parse(env, typeElement, MoreElements.asVariable(enclosedElement)));
             }
 
             if (enclosedElement.getKind() == ElementKind.CONSTRUCTOR) {

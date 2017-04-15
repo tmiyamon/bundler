@@ -83,8 +83,8 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
 
     private void emitField(BundlerFieldElement field, TypeSpec.Builder typeSpecBuilder)  throws IOException {
         final String operation = field.getOperation(env);
-        final String keyName = field.getBundleKeyName();
-        final String keyValue = field.getBundleKeyValue();
+        final String keyName = field.bundleKeyName;
+        final String keyValue = field.bundleKeyValue;
         final TypeName valueType = TypeName.get(field.fieldType);
 
         FieldSpec bundleKey = FieldSpec.builder(TypeName.get(getStringType()), keyName)
