@@ -248,7 +248,7 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
                 fieldIndex.put(field.fieldName, field);
             }
 
-            StringBuilder modelInitializer = new StringBuilder("new " + bundler.originalClassName + "(");
+            StringBuilder modelInitializer = new StringBuilder("new " + bundler.getOriginalClassName().toString() + "(");
             for (VariableElement variable : bundler.constructor.originalElement.getParameters()) {
                 BundlerFieldElement correspondingField = fieldIndex.get(variable.getSimpleName().toString());
 
@@ -260,7 +260,7 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
 
             builder.addStatement("return $L", modelInitializer.toString());
         } else {
-            builder.addStatement("$L model = new $L()", bundler.originalClassName, bundler.originalClassName);
+            builder.addStatement("$N model = new $N()", bundler.getOriginalClassName(), bundler.getOriginalClassName());
 
             for (BundlerFieldElement field : bundler.fields) {
                 BundlerElement.SetterType setterType = bundler.getSetterTypeOf(field);
