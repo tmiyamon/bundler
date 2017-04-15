@@ -3,6 +3,8 @@ package com.tmiyamon.bundler;
 import com.google.auto.common.MoreElements;
 import com.squareup.javapoet.ClassName;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,6 +40,14 @@ class BundlerElement {
 
     private String buildBundlerClassName() {
         return "Bundler" + getOriginalClassName().toString().replaceFirst(this.packageName, "").replaceAll("\\.", "");
+    }
+
+    public String joinedFieldNames() {
+        List<String> fieldNames = new ArrayList<>();
+        for (BundlerFieldElement field : fields) {
+            fieldNames.add(field.fieldName);
+        }
+        return StringUtils.join(fieldNames, ", ");
     }
 
     public static BundlerElement parse(Element element, Env env) {
