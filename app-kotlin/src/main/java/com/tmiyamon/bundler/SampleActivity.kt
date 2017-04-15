@@ -9,6 +9,9 @@ class SampleActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_sample)
 
-//        val (userId, userName) = BundlerSampleParams.parse(intent)
+        val (userName, userId) = BundlerSampleActivityParams.parse(intent)
     }
+
+    @Bundler
+    data class Params(val userName: String, val userId: Int)
 }

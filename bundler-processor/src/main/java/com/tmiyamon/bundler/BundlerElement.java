@@ -4,7 +4,6 @@ import com.google.auto.common.MoreElements;
 import com.squareup.javapoet.ClassName;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 
 import javax.lang.model.element.Element;
@@ -14,41 +13,31 @@ import javax.lang.model.element.TypeElement;
 
 class BundlerElement {
     public final TypeElement originalElement;
-    public final List<TypeElement> outerElements;
     public final BundlerConstructorElement constructor;
     public final List<BundlerFieldElement> fields;
     public final String packageName;
-    private final String bundlerClassName;
 
     public BundlerElement(
             TypeElement originalElement,
-            List<TypeElement> outerElements,
             BundlerConstructorElement constructor,
             List<BundlerFieldElement> fields,
-            String bundlerClassName,
             String packageName
     ) {
         this.originalElement = originalElement;
-        this.outerElements = outerElements;
         this.constructor = constructor;
         this.fields = fields;
-        this.bundlerClassName = bundlerClassName;
         this.packageName = packageName;
     }
 
     public ClassName getBundlerClassName() {
-        return ClassName.get(packageName, bundlerClassName);
+        return ClassName.get(packageName, buildBundlerClassName());
     }
     public ClassName getOriginalClassName() {
         return ClassName.get(originalElement);
     }
 
-    private List<String> getOuterClasses() {
-        List<String> outerClasses = new ArrayList<>();
-        for (TypeElement outer : outerElements) {
-            outerClasses.add(outer.getSimpleName().toString());
-        }
-        return outerClasses;
+    private String buildBundlerClassName() {
+        return "Bundler" + getOriginalClassName().toString().replaceFirst(this.packageName, "").replaceAll("\\.", "");
     }
 
     public static BundlerElement parse(Element element, Env env) {
@@ -73,25 +62,11 @@ class BundlerElement {
 
         final BundlerConstructorElement constructor = constructors.get(0);
         final String packageName = env.getPackageName(typeElement);
-        final String bundlerClassName = "Bundler" + element.getSimpleName().toString();
-
-        LinkedList<TypeElement> outerElements = new LinkedList<>();
-        Element outerElement = element.getEnclosingElement();
-        while (true) {
-            Element nextOuterElement = outerElement.getEnclosingElement();
-            if (nextOuterElement == null || nextOuterElement.getKind() != ElementKind.CLASS) {
-                break;
-            }
-            outerElements.addFirst(MoreElements.asType(nextOuterElement));
-            outerElement = nextOuterElement;
-        }
 
         return new BundlerElement(
                 typeElement,
-                outerElements,
                 constructor,
                 fields,
-                bundlerClassName,
                 packageName
         );
     }

@@ -10,7 +10,7 @@ public class SampleActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sample);
 
-        SampleParams params = BundlerSampleParams.parse(getIntent());
+        Params params = BundlerSampleActivityParams.parse(getIntent());
 //
 //        BundlerSampleParams.fromIntent(getIntent());
 //        Bundler.parse(getIntent().getExtra());
@@ -19,11 +19,11 @@ public class SampleActivity extends AppCompatActivity {
     }
 
     @Bundler
-    public static class SampleParams {
+    public static class Params {
         public String userName;
         public int userId;
 
-        public SampleParams(String userName, int userId) {
+        public Params(String userName, int userId) {
             this.userName = userName;
             this.userId = userId;
         }
