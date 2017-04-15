@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.ArrayType;
@@ -14,8 +15,8 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 
 class BundlerFieldElement {
-    public final String bundleValueName;
-    public final TypeMirror bundleValueType;
+    public final String fieldName;
+    public final TypeMirror fieldType;
     public final VariableElement variableElement;
 
 
@@ -43,9 +44,9 @@ class BundlerFieldElement {
         ARGUMENT_TYPES.put("android.os.Parcelable", "Parcelable");
     }
 
-    private BundlerFieldElement(String bundleValueName, VariableElement variableElement) {
-        this.bundleValueName = bundleValueName;
-        this.bundleValueType = variableElement.asType();
+    private BundlerFieldElement(String fieldName, VariableElement variableElement) {
+        this.fieldName = fieldName;
+        this.fieldType = variableElement.asType();
         this.variableElement = variableElement;
     }
 
@@ -56,36 +57,48 @@ class BundlerFieldElement {
 
     public String getRawTypeName() {
         if (isArray()) {
-            return ((ArrayType) bundleValueType).getComponentType().toString();
+            return ((ArrayType) fieldType).getComponentType().toString();
         }
-        return bundleValueType.toString();
+        return fieldType.toString();
     }
 
     public boolean isArray() {
-        return bundleValueType.getKind() == TypeKind.ARRAY;
+        return fieldType.getKind() == TypeKind.ARRAY;
     }
 
     public boolean isPrimitive() {
-        return bundleValueType.getKind().isPrimitive();
+        return fieldType.getKind().isPrimitive();
     }
 
     public TypeMirror getComponentTypeIfArray() {
         if (isArray()) {
-            return ((ArrayType) bundleValueType).getComponentType();
+            return ((ArrayType) fieldType).getComponentType();
         }
         return null;
     }
 
-    public String getGetMethodName() {
-        return "get" + buildOperationName(bundleValueName);
+    public String getGetValueFromBundleMethodName() {
+        return "get" + fromLowerCamelToUpperCamel(fieldName);
     }
 
-    public String getPutMethodName() {
-        return "put" + buildOperationName(bundleValueName);
+    public String getPutValueToBundleMethodName() {
+        return "put" + fromLowerCamelToUpperCamel(fieldName);
+    }
+
+    public boolean isPublic() {
+        return this.variableElement.getModifiers().contains(Modifier.PUBLIC);
+    }
+
+    public String getExpectedGetterName() {
+        return "get" + fromLowerCamelToUpperCamel(this.fieldName);
+    }
+
+    public String getExpectedSetterName() {
+        return "set" + fromLowerCamelToUpperCamel(this.fieldName);
     }
 
     public String getBundleKeyName() {
-        return "ARG_" + buildKeyName(bundleValueName);
+        return "ARG_" + fromLowerCamelToUpperUnderscore(fieldName);
     }
     public String getBundleKeyValue() {
         return getBundleKeyName();
@@ -101,7 +114,7 @@ class BundlerFieldElement {
             }
         }
 
-        TypeMirror type = bundleValueType;
+        TypeMirror type = fieldType;
         String[] arrayListTypes = new String[] {
                 String.class.getName(),
                 Integer.class.getName(),
@@ -153,11 +166,11 @@ class BundlerFieldElement {
         return env.getTypes().getDeclaredType(arrayList, elType);
     }
 
-    private static String buildOperationName(String bundleValueName) {
+    private static String fromLowerCamelToUpperCamel(String bundleValueName) {
         return CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_CAMEL, bundleValueName);
     }
 
-    private static String buildKeyName(String bundleValueName) {
+    private static String fromLowerCamelToUpperUnderscore(String bundleValueName) {
         return CaseFormat.LOWER_CAMEL.to(CaseFormat.UPPER_UNDERSCORE, bundleValueName);
     }
 }

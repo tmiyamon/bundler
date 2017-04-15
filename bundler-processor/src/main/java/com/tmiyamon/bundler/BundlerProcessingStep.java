@@ -13,11 +13,14 @@ import com.squareup.javapoet.TypeSpec;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 
 import static com.squareup.javapoet.TypeSpec.classBuilder;
@@ -59,6 +62,7 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
         for (BundlerFieldElement field : bundler.fields) {
             emitField(field, typeSpecBuilder);
         }
+
         typeSpecBuilder
                 .addMethod(buildCreateBundle(bundler))
                 .addMethod(buildCreateBundleWithFields(bundler))
@@ -68,6 +72,7 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
                 .addMethod(buildApplyWithField(bundler))
                 .addMethod(buildParse(bundler))
                 .addMethod(buildParseIntent(bundler));
+        ;
 
         JavaFile.builder(bundlerClassName.packageName(), typeSpecBuilder.build())
                 .skipJavaLangImports(true)
@@ -80,14 +85,14 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
         final String operation = field.getOperation(env);
         final String keyName = field.getBundleKeyName();
         final String keyValue = field.getBundleKeyValue();
-        final TypeName valueType = TypeName.get(field.bundleValueType);
+        final TypeName valueType = TypeName.get(field.fieldType);
 
         FieldSpec bundleKey = FieldSpec.builder(TypeName.get(getStringType()), keyName)
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
                 .initializer("$S", keyValue)
                 .build();
 
-        MethodSpec putOperation = MethodSpec.methodBuilder(field.getPutMethodName())
+        MethodSpec putOperation = MethodSpec.methodBuilder(field.getPutValueToBundleMethodName())
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .addParameter(ParameterSpec.builder(TypeName.get(getBundleType()), "bundle").build())
                 .addParameter(ParameterSpec.builder(valueType, "value").build())
@@ -95,7 +100,7 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
                 .addStatement("bundle.put$N($N, $N)", operation, keyName, "value")
                 .build();
 
-        MethodSpec getOperation = MethodSpec.methodBuilder(field.getGetMethodName())
+        MethodSpec getOperation = MethodSpec.methodBuilder(field.getGetValueFromBundleMethodName())
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .addParameter(ParameterSpec.builder(TypeName.get(getBundleType()), "bundle").build())
                 .returns(valueType)
@@ -114,17 +119,18 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
      * @return
      */
     private MethodSpec buildCreateBundle(BundlerElement bundler) {
-        MethodSpec.Builder createBundleBuilder = MethodSpec.methodBuilder("createBundle")
+        MethodSpec.Builder builder = MethodSpec.methodBuilder("createBundle")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .addParameter(ParameterSpec.builder(TypeName.get(bundler.originalElement.asType()), "model").build())
                 .returns(TypeName.get(getBundleType()))
                 .addStatement("Bundle bundle = new Bundle()");
 
         for (BundlerFieldElement field : bundler.fields) {
-            createBundleBuilder.addStatement("$N(bundle, model.$N)", field.getPutMethodName(), field.bundleValueName);
+            String getter = buildGetValueFromModelStatement(bundler.getGetterTypeOf(field),field);
+            builder.addStatement("$N(bundle, model.$N)", field.getPutValueToBundleMethodName(), getter);
         }
 
-        return createBundleBuilder.addStatement("return bundle").build();
+        return builder.addStatement("return bundle").build();
     }
 
     /**
@@ -133,18 +139,17 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
      * @return
      */
     private MethodSpec buildCreateBundleWithFields(BundlerElement bundler) {
-        MethodSpec.Builder createBundleBuilder = MethodSpec.methodBuilder("createBundle")
+        MethodSpec.Builder builder = MethodSpec.methodBuilder("createBundle")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(TypeName.get(getBundleType()))
                 .addStatement("Bundle bundle = new Bundle()");
 
         for (BundlerFieldElement field : bundler.fields) {
-            createBundleBuilder
-                    .addParameter(TypeName.get(field.bundleValueType), field.bundleValueName)
-                    .addStatement("$N(bundle, $N)", field.getPutMethodName(), field.bundleValueName);
+            builder.addParameter(TypeName.get(field.fieldType), field.fieldName)
+                    .addStatement("$N(bundle, $N)", field.getPutValueToBundleMethodName(), field.fieldName);
         }
 
-        return createBundleBuilder.addStatement("return bundle").build();
+        return builder.addStatement("return bundle").build();
     }
 
     /**
@@ -169,19 +174,18 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
      * @return
      */
     private MethodSpec buildCreateIntentWithFields(BundlerElement bundler) {
-        MethodSpec.Builder createBundleBuilder = MethodSpec.methodBuilder("createIntent")
+        MethodSpec.Builder builder = MethodSpec.methodBuilder("createIntent")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .returns(TypeName.get(getIntentType()))
                 .addStatement("Intent intent = new Intent()");
 
         StringBuilder args = new StringBuilder();
         for (BundlerFieldElement field : bundler.fields) {
-            createBundleBuilder
-                    .addParameter(TypeName.get(field.bundleValueType), field.bundleValueName);
-            args.append(field.bundleValueName).append(",");
+            builder.addParameter(TypeName.get(field.fieldType), field.fieldName);
+            args.append(field.fieldName).append(",");
         }
 
-        return createBundleBuilder
+        return builder
                 .addStatement("intent.putExtras(createBundle($N))", args.substring(0, args.length()-1))
                 .addStatement("return intent")
                 .build();
@@ -209,19 +213,18 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
      * @return
      */
     private MethodSpec buildApplyWithField(BundlerElement bundler) {
-        MethodSpec.Builder createBundleBuilder = MethodSpec.methodBuilder("apply")
+        MethodSpec.Builder builder = MethodSpec.methodBuilder("apply")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .addParameter(ParameterSpec.builder(TypeName.get(getIntentType()), "intent").build())
                 .returns(TypeName.get(getIntentType()));
 
         StringBuilder args = new StringBuilder();
         for (BundlerFieldElement field : bundler.fields) {
-            createBundleBuilder
-                    .addParameter(TypeName.get(field.bundleValueType), field.bundleValueName);
-            args.append(field.bundleValueName).append(",");
+            builder.addParameter(TypeName.get(field.fieldType), field.fieldName);
+            args.append(field.fieldName).append(",");
         }
 
-        return createBundleBuilder
+        return builder
                 .addStatement("intent.putExtras(createBundle($N))", args.substring(0, args.length()-1))
                 .addStatement("return intent")
                 .build();
@@ -233,17 +236,44 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
      * @return
      */
     private MethodSpec buildParse(BundlerElement bundler) {
-        MethodSpec.Builder fromBundleBuilder = MethodSpec.methodBuilder("parse")
+        MethodSpec.Builder builder = MethodSpec.methodBuilder("parse")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .addParameter(ParameterSpec.builder(TypeName.get(getBundleType()), "bundle").build())
-                .returns(bundler.getOriginalClassName())
-                .addStatement("$L model = new $L()", bundler.getOriginalClassName().toString(), bundler.getOriginalClassName().toString());
+                .returns(bundler.getOriginalClassName());
 
-        for (BundlerFieldElement field : bundler.fields) {
-            fromBundleBuilder.addStatement("model.$N = $N(bundle)", field.bundleValueName, field.getGetMethodName());
+        boolean useConstructor = bundler.constructor.isParametersMatchToFields(bundler);
+        if (useConstructor) {
+            Map<String, BundlerFieldElement> fieldIndex = new HashMap<>();
+            for (BundlerFieldElement field : bundler.fields) {
+                fieldIndex.put(field.fieldName, field);
+            }
+
+            StringBuilder modelInitializer = new StringBuilder("new " + bundler.originalClassName + "(");
+            for (VariableElement variable : bundler.constructor.originalElement.getParameters()) {
+                BundlerFieldElement correspondingField = fieldIndex.get(variable.getSimpleName().toString());
+
+                modelInitializer
+                        .append(correspondingField.getGetValueFromBundleMethodName())
+                        .append("(bundle),");
+            }
+            modelInitializer.deleteCharAt(modelInitializer.length()-1).append(")");
+
+            builder.addStatement("return $L", modelInitializer.toString());
+        } else {
+            builder.addStatement("$L model = new $L()", bundler.originalClassName, bundler.originalClassName);
+
+            for (BundlerFieldElement field : bundler.fields) {
+                BundlerElement.SetterType setterType = bundler.getSetterTypeOf(field);
+
+                builder.addStatement("model.$L",
+                        buildSetValueToModelStatement(setterType, field, field.getGetValueFromBundleMethodName()+"(bundle)")
+                );
+            }
+
+            builder.addStatement("return model");
         }
 
-        return fromBundleBuilder.addStatement("return model").build();
+        return builder.build();
     }
 
     /**
@@ -252,18 +282,12 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
      * @return
      */
     private MethodSpec buildParseIntent(BundlerElement bundler) {
-        MethodSpec.Builder fromBundleBuilder = MethodSpec.methodBuilder("parse")
+        return MethodSpec.methodBuilder("parse")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                 .addParameter(ParameterSpec.builder(TypeName.get(getIntentType()), "intent").build())
                 .returns(bundler.getOriginalClassName())
-                .addStatement("$L bundle = intent.getExtras()", TypeName.get(getBundleType()).toString())
-                .addStatement("$L model = new $L()", bundler.getOriginalClassName().toString(), bundler.getOriginalClassName().toString());
-
-        for (BundlerFieldElement field : bundler.fields) {
-            fromBundleBuilder.addStatement("model.$N = $N(bundle)", field.bundleValueName, field.getGetMethodName());
-        }
-
-        return fromBundleBuilder.addStatement("return model").build();
+                .addStatement("return parse(intent.getExtras())", TypeName.get(getBundleType()).toString())
+                .build();
     }
 
     private TypeMirror getTypeFromString(String fullClassName)  {
@@ -280,5 +304,26 @@ public class BundlerProcessingStep implements BasicAnnotationProcessor.Processin
 
     private TypeMirror getStringType() {
         return getTypeFromString("java.lang.String");
+    }
+
+
+    private String buildGetValueFromModelStatement(BundlerElement.GetterType type, BundlerFieldElement field) {
+        switch(type){
+            case FIELD:
+                return field.fieldName;
+            case GETTER:
+                return field.getExpectedGetterName() + "()";
+        }
+        return null;
+    }
+
+    private String buildSetValueToModelStatement(BundlerElement.SetterType type, BundlerFieldElement field, String valueStatement) {
+        switch(type){
+            case FIELD:
+                return field.fieldName + " = " + valueStatement;
+            case SETTER:
+                return field.getExpectedSetterName() + "(" + valueStatement + ")";
+        }
+        return null;
     }
 }
